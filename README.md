@@ -59,14 +59,12 @@ Para verificar la interfaz de usuario, se pueden utilizar los siguientes archivo
 
 
 ### Conexión a Base de Datos
-Para verificar la conexión con la base de datos, utilizar el siguiente comando:
-```
-mysql -u root -p
-show databases;
-```
-Contraseña: `3534061`
+Se está implementando la base de datos en un contendor para mayor seguridad:
 
-![image](https://github.com/user-attachments/assets/e382d6a9-2832-4363-8acb-16734d6c4a63)
+![image](https://github.com/user-attachments/assets/12bb2f33-4c24-4abf-a09c-f17a29bfd3a3)
+![image](https://github.com/user-attachments/assets/94f4eb7a-d3f7-4621-b197-99ec856c8b49)
+
+
 
 ## Scripts de Utilidad
 
@@ -80,4 +78,4 @@ El proyecto incluye varios scripts para:
 
 ## Ejemplos de Topologías
 
-En los directorios `ana/`, `anapaula/`, `anillo_topo/`, `juan/` y `topo_exa/` se encuentran ejemplos de diferentes configuraciones de topologías.
+En los directorios `ana/` se encuentran ejemplos de diferentes configuraciones de topologías.

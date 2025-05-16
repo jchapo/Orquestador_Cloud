@@ -57,7 +57,7 @@ Para verificar la interfaz de usuario, se pueden utilizar los siguientes archivo
    ![image](https://github.com/user-attachments/assets/9e59f687-224d-4f62-8294-1c74580c79f3)
 
    - Permite la gestión completa de diferentes configuraciones de red
-   ![anillo_topo_visualization](https://github.com/user-attachments/assets/83a54cc9-2554-47e8-a854-37ba75b68515)
+   ![ana_vlan_topology](https://github.com/user-attachments/assets/19df1326-44c2-4768-b595-673f14cc6ab7)
 
 
 ### Conexión a Base de Datos

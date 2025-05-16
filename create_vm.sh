@@ -1,124 +1,103 @@
 #!/bin/bash
 
-# Script para crear una VM
-# Uso: ./create_vm.sh <nombre_vm> <nombre_ovs> <vlan_id> <puerto_vnc> [<mac_address>]
-# Ejemplo: ./create_vm.sh vm1 br-int 100 1 aa:bb:cc:dd:ee:ff
+# Script para crear una VM sin interfaces de red iniciales
+# Uso: ./create_vm.sh <vm_name> <vnc_port> <mac_address> <cpu> <ram> <disk> <image>
 
-if [ $# -lt 4 ]; then
-    echo "Uso: $0 <nombre_vm> <nombre_ovs> <vlan_id> <puerto_vnc> [<mac_address>]"
-    echo "Ejemplo: $0 vm1 br-int 100 1 aa:bb:cc:dd:ee:ff"
+if [ $# -lt 7 ]; then
+    echo "Uso: $0 <vm_name> <vnc_port> <mac_address> <cpu> <ram> <disk> <image>"
     exit 1
 fi
-
-# Verificar si se está ejecutando como root
-#if [[ $EUID -ne 0 ]]; then
-#   echo "Este script debe ejecutarse como root" 
-#   exit 1
-#fi
 
 VM_NAME=$1
-OVS_NAME=$2
-VLAN_ID=$3
-VNC_PORT=$4
+VNC_PORT=$2
+MAC_ADDRESS=$3
+CPU=$4
+RAM=$5           # RAM en MiB
+DISK=$6          # Tamaño del disco en GB
+IMAGE_FILE=$7
 
-# MAC Address opcional (si no se proporciona, se genera uno)
-if [ $# -ge 5 ]; then
-    MAC_ADDRESS=$5
-else
-    # Generar un MAC address aleatorio
-    MAC_ADDRESS=$(printf '52:54:00:%02x:%02x:%02x\n' $((RANDOM%256)) $((RANDOM%256)) $((RANDOM%256)))
+if [ "$VNC_PORT" -lt 5900 ]; then
+    VNC_PORT=$((5900 + $VNC_PORT))
 fi
 
-# Directorio para las imágenes
-IMG_DIR="/var/lib/images"
-mkdir -p $IMG_DIR
+# Obtener el directorio base desde donde se ejecuta el script
+SCRIPT_DIR="/home/ubuntu/cloud-orchestrator"
+IMAGES_DIR="$SCRIPT_DIR/images"
+VM_IMAGE="$IMAGES_DIR/$VM_NAME.qcow2"
+BASE_IMAGE="$IMAGES_DIR/$IMAGE_FILE"
 
-# Nombre de la imagen CirrOS
-IMG_NAME="cirros-0.5.1-x86_64-disk.img"
-IMG_PATH="$IMG_DIR/$IMG_NAME"
+#echo "Script ubicado en: $SCRIPT_DIR"
+#echo "Usando BASE_IMAGE: $BASE_IMAGE"
+#ls -l "$BASE_IMAGE"
 
-# Verificar si la imagen existe, si no, descargarla
-if [ ! -f "$IMG_PATH" ]; then
-    echo "La imagen $IMG_NAME no existe. Descargando..."
-    # URL de la imagen CirrOS
-    IMG_URL="https://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img"
-    
-    # Verificar si curl está instalado
-    if ! command -v curl &> /dev/null; then
-        echo "curl no está instalado. Instalando..."
-        apt-get update && apt-get install -y curl
+mkdir -p "$IMAGES_DIR"
+
+# Verificar si existe la imagen base
+if ! ls "$BASE_IMAGE" &>/dev/null; then
+    echo "ls: cannot access '$BASE_IMAGE': No such file or directory"
+    if [ "$IMAGE_FILE" = "cirros.img" ]; then
+        echo "La imagen cirros.img no existe. Descargando CirrOS..."
+        mkdir -p "$IMAGES_DIR"
+        wget -q -O "$BASE_IMAGE.tmp" "https://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img"
+        mv "$BASE_IMAGE.tmp" "$BASE_IMAGE"
+    else
+        echo "La imagen $IMAGE_FILE no existe. Descargando imagen base por defecto: ubuntu.img"
+        mkdir -p "$IMAGES_DIR"
+        wget -q -O "$IMAGES_DIR/ubuntu.img.tmp" "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
+        mv "$IMAGES_DIR/ubuntu.img.tmp" "$IMAGES_DIR/ubuntu.img"
+        BASE_IMAGE="$IMAGES_DIR/ubuntu.img"
     fi
-    
-    # Descargar la imagen
-    curl -L $IMG_URL -o $IMG_PATH
-    
-    if [ $? -ne 0 ]; then
-        echo "Error al descargar la imagen. Verifique la conexión a Internet."
-        exit 1
-    fi
-    
-    echo "Imagen descargada correctamente: $IMG_PATH"
-else
-    echo "Usando imagen existente: $IMG_PATH"
 fi
 
-# Crear interfaz TAP para la VM
-TAP_INTERFACE="tap_${VM_NAME}"
-#SHORT_VM_NAME=$(echo $VM_NAME | cut -c1-10)
-#TAP_INTERFACE="tap_${SHORT_VM_NAME}"
-
-if ! ip link show $TAP_INTERFACE &> /dev/null; then
-    echo "Creando interfaz TAP para la VM..."
-    ip tuntap add mode tap name  $TAP_INTERFACE
-    ip link set dev $TAP_INTERFACE up
-    echo "Interfaz TAP creada: $TAP_INTERFACE"
-else
-    echo "La interfaz TAP ya existe: $TAP_INTERFACE"
+# Crear imagen de VM si no existe
+if [ ! -f "$VM_IMAGE" ]; then
+    echo "Creando imagen de VM desde $BASE_IMAGE con tamaño ${DISK}G..."
+    qemu-img create -f qcow2 -b "$BASE_IMAGE" "$VM_IMAGE" "${DISK}G"
 fi
 
-# Conectar la interfaz TAP al OvS con la VLAN correspondiente
-if ! ovs-vsctl show | grep "Port \"$TAP_INTERFACE\"" > /dev/null; then
-    echo "Conectando interfaz TAP al OvS con VLAN $VLAN_ID..."
-    ovs-vsctl add-port $OVS_NAME $TAP_INTERFACE
-    ovs-vsctl set port $TAP_INTERFACE tag=$VLAN_ID
-    echo "Interfaz TAP conectada al OvS con VLAN $VLAN_ID"
-else
-    echo "La interfaz TAP ya está conectada al OvS."
-    # Actualizar la VLAN si es necesario
-    ovs-vsctl set port $TAP_INTERFACE tag=$VLAN_ID
-fi
+# Crear archivo XML para definir la VM SIN interfaces de red
+XML_FILE="/tmp/$VM_NAME.xml"
+cat > "$XML_FILE" <<EOF
+<domain type='kvm'>
+  <name>$VM_NAME</name>
+  <memory unit='MiB'>$RAM</memory>
+  <vcpu placement='static'>$CPU</vcpu>
+  <os>
+    <type arch='x86_64'>hvm</type>
+    <boot dev='hd'/>
+  </os>
+  <features>
+    <acpi/>
+    <apic/>
+    <pae/>
+  </features>
+  <clock offset='utc'/>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>restart</on_crash>
+  <devices>
+    <emulator>/usr/bin/qemu-system-x86_64</emulator>
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='qcow2'/>
+      <source file='$VM_IMAGE'/>
+      <target dev='vda' bus='virtio'/>
+    </disk>
+    <serial type='pty'>
+      <target port='0'/>
+    </serial>
+    <console type='pty'>
+      <target type='serial' port='0'/>
+    </console>
+    <graphics type='vnc' port='$VNC_PORT' listen='0.0.0.0'/>
+    <video>
+      <model type='cirrus'/>
+    </video>
+  </devices>
+</domain>
+EOF
 
-# Crear directorio para los logs
-LOG_DIR="/var/log/vms"
-mkdir -p $LOG_DIR
+# Definir la VM - sin iniciarla todavía
+virsh define "$XML_FILE"
 
-# Iniciar la VM con QEMU/KVM
-echo "Iniciando la VM $VM_NAME..."
-VM_PID_FILE="/var/run/vm_${VM_NAME}.pid"
-
-# Construir comando para iniciar la VM según los parámetros proporcionados
-QEMU_CMD="qemu-system-x86_64 \
-    -enable-kvm \
-    -vnc 0.0.0.0:$VNC_PORT \
-    -netdev tap,id=$TAP_INTERFACE,ifname=$TAP_INTERFACE,script=no,downscript=no \
-    -device e1000,netdev=$TAP_INTERFACE,mac=$MAC_ADDRESS \
-    -daemonize \
-    -snapshot \
-    -pidfile $VM_PID_FILE \
-    $IMG_PATH"
-
-# Ejecutar el comando
-echo "Ejecutando: $QEMU_CMD"
-eval $QEMU_CMD
-
-# Verificar si la VM se inició correctamente
-if [ -f "$VM_PID_FILE" ]; then
-    VM_PID=$(cat $VM_PID_FILE)
-    echo "VM $VM_NAME iniciada correctamente con PID $VM_PID"
-    echo "Acceso VNC disponible en el puerto 590$VNC_PORT"
-else
-    echo "Error al iniciar la VM $VM_NAME"
-    exit 1
-fi
-
-echo "Creación de VM completada!"
+# Nota: No iniciamos la VM aquí, primero se añaden interfaces y luego se inicia
+echo "VM $VM_NAME creada correctamente. Usa add_interface.sh para añadir interfaces antes de iniciarla."

@@ -14,75 +14,78 @@
     "head_ofs": "ens4",
     "worker_ofs": "ens4"
   },
-  "vlans": [
-    {
-      "id": 100,
-      "network": "192.168.100.0/24",
-      "dhcp_range": "192.168.100.10,192.168.100.200"
-    }
-  ],
+  "vlans": [],
   "vms": [
     {
       "name": "vm1",
       "worker": 1,
-      "vlan": 100,
       "vnc_port": 1,
-      "mac": "52:54:00:01:01:67"
+      "mac": "52:54:00:01:01:e5",
+      "flavor": {
+        "name": "bajito",
+        "cpu": 2,
+        "ram": 600,
+        "disk": 2,
+        "image": "cirros.img"
+      }
     },
     {
       "name": "vm2",
       "worker": 2,
-      "vlan": 100,
       "vnc_port": 2,
-      "mac": "52:54:00:02:02:86"
+      "mac": "52:54:00:02:02:6c",
+      "flavor": {
+        "name": "tiny",
+        "cpu": 1,
+        "ram": 512,
+        "disk": 1,
+        "image": "ubuntu.img"
+      }
     },
     {
       "name": "vm3",
       "worker": 3,
-      "vlan": 100,
       "vnc_port": 3,
-      "mac": "52:54:00:03:03:ac"
-    },
-    {
-      "name": "vm4",
-      "worker": 1,
-      "vlan": 100,
-      "vnc_port": 4,
-      "mac": "52:54:00:01:04:3c"
+      "mac": "52:54:00:03:03:77",
+      "flavor": {
+        "name": "tiny",
+        "cpu": 1,
+        "ram": 512,
+        "disk": 1,
+        "image": "ubuntu.img"
+      }
     }
   ],
   "connections": [
     {
       "from": "vm1",
-      "to": "vm4"
+      "to": "vm2",
+      "vlan_id": 100
+    },
+    {
+      "from": "vm2",
+      "to": "vm1",
+      "vlan_id": 100
+    },
+    {
+      "from": "vm2",
+      "to": "vm3",
+      "vlan_id": 101
+    },
+    {
+      "from": "vm3",
+      "to": "vm2",
+      "vlan_id": 101
+    },
+    {
+      "from": "vm3",
+      "to": "vm1",
+      "vlan_id": 102
     },
     {
       "from": "vm1",
-      "to": "vm2"
-    },
-    {
-      "from": "vm2",
-      "to": "vm1"
-    },
-    {
-      "from": "vm2",
-      "to": "vm3"
-    },
-    {
-      "from": "vm3",
-      "to": "vm2"
-    },
-    {
-      "from": "vm3",
-      "to": "vm4"
-    },
-    {
-      "from": "vm4",
-      "to": "vm3"
-    },
-    {
-      "from": "vm4",
-      "to": "vm1"
+      "to": "vm3",
+      "vlan_id": 102
     }
   ],
   "settings": {
@@ -91,8 +94,6 @@
   },
   "vm_internet_access": [
     "vm1",
-    "vm2",
-    "vm3",
-    "vm4"
+    "vm3"
   ]
 }

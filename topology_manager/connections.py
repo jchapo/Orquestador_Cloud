@@ -23,7 +23,7 @@ def list_connections(topology):
     
     print("-" * 40)
 
-def add_connection(topology, from_vm=None, to_vm=None, bidirectional=True):
+def add_connection(topology, from_vm=None, to_vm=None, bidirectional=True, vlan_id=None):
     """
     Agrega una nueva conexión entre VMs existentes
     
@@ -32,6 +32,7 @@ def add_connection(topology, from_vm=None, to_vm=None, bidirectional=True):
         from_vm: Nombre de la VM de origen (opcional)
         to_vm: Nombre de la VM de destino (opcional)
         bidirectional: Si True, agrega también la conexión inversa
+        vlan_id: ID de VLAN para esta conexión (opcional)
         
     Returns:
         True si la conexión se agregó con éxito, False en caso contrario
@@ -82,13 +83,36 @@ def add_connection(topology, from_vm=None, to_vm=None, bidirectional=True):
                 print(f"La conexión {from_vm} -> {to_vm} ya existe.")
                 return False
         
+        # Si no se proporcionó un ID de VLAN, generarlo automáticamente
+        if vlan_id is None:
+            # Encontrar el próximo ID de VLAN disponible
+            used_vlans = [conn.get('vlan_id') for conn in topology.connections if 'vlan_id' in conn]
+            vlan_id = 100  # VLAN inicial
+            while vlan_id in used_vlans and vlan_id <= 4094:  # 4094 es el máximo ID de VLAN
+                vlan_id += 1
+            
+            if vlan_id > 4094:
+                print("Error: Se ha alcanzado el límite de VLANs disponibles.")
+                return False
+        else:
+            # Verificar que el ID de VLAN proporcionado sea válido
+            try:
+                vlan_id = int(vlan_id)
+                if vlan_id < 1 or vlan_id > 4094:
+                    print("Error: El ID de VLAN debe estar entre 1 y 4094.")
+                    return False
+            except ValueError:
+                print("Error: El ID de VLAN debe ser un número entero.")
+                return False
+        
         # Agregar la conexión
         topology.add_connection({
             "from": from_vm,
-            "to": to_vm
+            "to": to_vm,
+            "vlan_id": vlan_id
         })
         
-        print(f"Conexión {from_vm} -> {to_vm} agregada con éxito.")
+        print(f"Conexión {from_vm} -> {to_vm} (VLAN {vlan_id}) agregada con éxito.")
         
         # Agregar la conexión inversa si se especificó
         if bidirectional:
@@ -98,13 +122,14 @@ def add_connection(topology, from_vm=None, to_vm=None, bidirectional=True):
                     print(f"La conexión inversa {to_vm} -> {from_vm} ya existe.")
                     return True
             
-            # Agregar la conexión inversa
+            # Agregar la conexión inversa con la misma VLAN
             topology.add_connection({
                 "from": to_vm,
-                "to": from_vm
+                "to": from_vm,
+                "vlan_id": vlan_id  # Usar la misma VLAN para la conexión bidireccional
             })
             
-            print(f"Conexión inversa {to_vm} -> {from_vm} agregada con éxito.")
+            print(f"Conexión inversa {to_vm} -> {from_vm} (VLAN {vlan_id}) agregada con éxito.")
         
         return True
     

@@ -1,0 +1,7 @@
+{
+  "name": "tiny",
+  "cpu": 1,
+  "ram": 512,
+  "disk": 1,
+  "image": "ubuntu.img"
+}

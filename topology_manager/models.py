@@ -8,12 +8,13 @@ los componentes de una topología de red.
 class VM:
     """Representa una máquina virtual en la topología"""
     
-    def __init__(self, name, worker, vlan, vnc_port, mac):
+    def __init__(self, name, worker, vnc_port, mac, vlan=None, flavor=None):
         self.name = name
         self.worker = worker
-        self.vlan = vlan
         self.vnc_port = vnc_port
         self.mac = mac
+        self.vlan = vlan
+        self.flavor = flavor
     
     def to_dict(self):
         """Convierte la VM a un diccionario para serialización"""
@@ -22,7 +23,8 @@ class VM:
             "worker": self.worker,
             "vlan": self.vlan,
             "vnc_port": self.vnc_port,
-            "mac": self.mac
+            "mac": self.mac,
+            "flavor": self.flavor
         }
     
     @classmethod
@@ -33,28 +35,35 @@ class VM:
             worker=data["worker"],
             vlan=data["vlan"],
             vnc_port=data["vnc_port"],
-            mac=data["mac"]
+            mac=data["mac"],
+            flavor=data.get("flavor")  # Usar get para compatibilidad con formatos antiguos
         )
 
 
 class Connection:
     """Representa una conexión entre dos VMs"""
     
-    def __init__(self, from_vm, to_vm):
+    def __init__(self, from_vm, to_vm, vlan_id=None):
         self.from_vm = from_vm
         self.to_vm = to_vm
+        self.vlan_id = vlan_id
     
     def to_dict(self):
         """Convierte la conexión a un diccionario para serialización"""
         return {
             "from": self.from_vm,
-            "to": self.to_vm
+            "to": self.to_vm,
+            "vlan_id": self.vlan_id
         }
     
     @classmethod
     def from_dict(cls, data):
         """Crea una conexión a partir de un diccionario"""
-        return cls(from_vm=data["from"], to_vm=data["to"])
+        return cls(
+            from_vm=data["from"], 
+            to_vm=data["to"],
+            vlan_id=data.get("vlan_id") # Usar get para compatibilidad con formatos antiguos
+        )
 
 
 class Topology:

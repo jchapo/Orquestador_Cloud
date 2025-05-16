@@ -33,11 +33,11 @@ def print_vms(topology):
     
     print("\nVMs disponibles:")
     print("-" * 60)
-    print(f"{'Nombre':<10} {'Worker':<10} {'VLAN':<10} {'MAC':<20}")
+    print(f"{'Nombre':<10} {'Worker':<10} {'VNC Port':<10} {'MAC':<20}")
     print("-" * 60)
     
     for vm in topology.vms:
-        print(f"{vm['name']:<10} {vm['worker']:<10} {vm['vlan']:<10} {vm['mac']:<20}")
+        print(f"{vm['name']:<10} {vm['worker']:<10} {vm['vnc_port']:<10} {vm['mac']:<20}")
     
     print("-" * 60)
 
@@ -47,15 +47,16 @@ def print_connections(topology):
         print("No hay conexiones definidas.")
         return
     
-    print("\nConexiones:")
-    print("-" * 25)
-    print(f"{'Origen':<10} {'Destino':<10}")
-    print("-" * 25)
+    print("\\nConexiones:")
+    print("-" * 40)
+    print(f"{'#':<4} {'Origen':<15} {'Destino':<15} {'VLAN':<6}")
+    print("-" * 40)
     
-    for conn in topology.connections:
-        print(f"{conn['from']:<10} {conn['to']:<10}")
+    for i, conn in enumerate(topology.connections):
+        vlan_id = conn.get('vlan_id', 'N/A')
+        print(f"{i+1:<4} {conn['from']:<15} {conn['to']:<15} {vlan_id:<6}")
     
-    print("-" * 25)
+    print("-" * 40)
 
 def get_user_input(prompt, default=None, validator=None):
     """

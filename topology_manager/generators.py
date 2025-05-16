@@ -7,6 +7,7 @@ de topologías de red (anillo, estrella, lineal, personalizada).
 
 from .utils import generate_mac
 from .models import VM, Connection
+from .flavor_manager import select_flavor, get_flavor_data
 
 class TopologyGenerator:
     """Clase para generar diferentes tipos de topologías"""
@@ -14,16 +15,13 @@ class TopologyGenerator:
     def __init__(self, manager):
         self.manager = manager
     
-    def create_ring_topology(self, num_vms, vlan_id=100, start_vm_id=None):
+    def create_ring_topology(self, num_vms, start_vm_id=None, default_flavor=None):
         """
         Crea una topología en anillo con el número especificado de VMs
         Retorna una lista de los nombres de las VMs creadas
         """
         if start_vm_id is None:
             start_vm_id = self.manager.topology.get_next_vm_id()
-
-        # Asegurarse de que la VLAN exista en la topología
-        self._ensure_vlan_exists(vlan_id)
         
         # Crear las VMs
         new_vms = []
@@ -34,41 +32,69 @@ class TopologyGenerator:
             vnc_port = (i % 5) + 1   # Máximo 5 puertos VNC por worker
             mac = generate_mac(worker_id, vm_id)
             
+            # Seleccionar flavor para esta VM si no se proporcionó uno por defecto
+            vm_flavor = default_flavor
+            if not vm_flavor:
+                print(f"\nSeleccionar flavor para {vm_name}:")
+                vm_flavor = select_flavor()
+
             # Añadir la VM a la topología
             vm = {
                 "name": vm_name,
                 "worker": worker_id,
-                "vlan": vlan_id,
                 "vnc_port": vnc_port,
-                "mac": mac
+                "mac": mac,
+                "flavor": get_flavor_data(vm_flavor)
             }
             self.manager.topology.add_vm(vm)
             new_vms.append(vm_name)
         
-        # Crear las conexiones del anillo
+        # Crear las conexiones del anillo con VLANs únicas
+        vlan_id_base = 100  # VLAN inicial
+        connections_made = set()  # Registro de conexiones (para evitar duplicados)
+        
         for i in range(num_vms):
-            vm = new_vms[i]
-            prev_vm = new_vms[(i-1) % num_vms]
-            next_vm = new_vms[(i+1) % num_vms]
+            current_vm = new_vms[i]
+            next_vm = new_vms[(i + 1) % num_vms]
             
-            # Conexión con el nodo anterior
+            # Definir un identificador único para esta conexión (ordenado para bidireccionalidad)
+            conn_pair = tuple(sorted([current_vm, next_vm]))
+            
+            # Si esta conexión ya se ha creado, omitirla
+            if conn_pair in connections_made:
+                continue
+            
+            # Asignar una VLAN única para esta conexión
+            vlan_id = vlan_id_base + len(connections_made)
+            
+            # Conexión en ambas direcciones con la misma VLAN
             self.manager.topology.add_connection({
-                "from": vm,
-                "to": prev_vm
+                "from": current_vm,
+                "to": next_vm,
+                "vlan_id": vlan_id
             })
             
-            # Conexión con el nodo siguiente
             self.manager.topology.add_connection({
-                "from": vm,
-                "to": next_vm
+                "from": next_vm,
+                "to": current_vm,
+                "vlan_id": vlan_id
             })
+            
+            connections_made.add(conn_pair)
         
         return new_vms
-
-    def create_star_topology(self, num_vms, vlan_id=100, start_vm_id=None):
+    
+    def create_star_topology(self, num_vms, start_vm_id=None, default_flavor=None):
         """
         Crea una topología en estrella con el número especificado de VMs
-        Retorna una lista de los nombres de las VMs creadas
+        
+        Args:
+            num_vms: Número de VMs a crear
+            start_vm_id: ID inicial para las VMs (opcional)
+            default_flavor: Flavor para asignar a todas las VMs (opcional)
+            
+        Returns:
+            Lista de los nombres de las VMs creadas
         """
         if num_vms < 2:
             print("Una topología en estrella requiere al menos 2 VMs (centro + 1 extremo)")
@@ -85,49 +111,62 @@ class TopologyGenerator:
             worker_id = (i % 3) + 1  # Distribuir entre los 3 workers
             vnc_port = (i % 5) + 1   # Máximo 5 puertos VNC por worker
             mac = generate_mac(worker_id, vm_id)
+         
+            # Seleccionar flavor para esta VM si no se proporcionó uno por defecto
+            vm_flavor = default_flavor
+            if not vm_flavor:
+                print(f"\nSeleccionar flavor para {vm_name}:")
+                vm_flavor = select_flavor()
             
             # Añadir la VM a la topología
             vm = {
                 "name": vm_name,
                 "worker": worker_id,
-                "vlan": vlan_id,
                 "vnc_port": vnc_port,
-                "mac": mac
+                "mac": mac,
+                "flavor": get_flavor_data(vm_flavor)
             }
             self.manager.topology.add_vm(vm)
             new_vms.append(vm_name)
         
-        # Crear las conexiones de la estrella
+        # Crear las conexiones de la estrella con VLANs únicas
         center_vm = new_vms[0]  # El primer nodo es el centro
+        vlan_id_base = 100  # VLAN inicial
         
         # Conexiones desde el centro a cada extremo
         for i in range(1, num_vms):
             edge_vm = new_vms[i]
+            vlan_id = vlan_id_base + (i - 1)
             
-            # Conexión entre el centro y el extremo
+            # Conexión bidireccional entre el centro y el extremo
             self.manager.topology.add_connection({
                 "from": center_vm,
-                "to": edge_vm
+                "to": edge_vm,
+                "vlan_id": vlan_id
             })
             
-            # Conexión entre el extremo y el centro (bidireccional)
             self.manager.topology.add_connection({
                 "from": edge_vm,
-                "to": center_vm
+                "to": center_vm,
+                "vlan_id": vlan_id
             })
         
         return new_vms
-
-    def create_linear_topology(self, num_vms, vlan_id=100, start_vm_id=None):
+    
+    def create_linear_topology(self, num_vms, start_vm_id=None, default_flavor=None):
         """
         Crea una topología lineal con el número especificado de VMs
-        Retorna una lista de los nombres de las VMs creadas
+        
+        Args:
+            num_vms: Número de VMs a crear
+            start_vm_id: ID inicial para las VMs (opcional)
+            default_flavor: Flavor para asignar a todas las VMs (opcional)
+            
+        Returns:
+            Lista de los nombres de las VMs creadas
         """
         if start_vm_id is None:
             start_vm_id = self.manager.topology.get_next_vm_id()
-        
-        # Asegurarse de que la VLAN exista en la topología
-        self._ensure_vlan_exists(vlan_id)
         
         # Crear las VMs
         new_vms = []
@@ -137,35 +176,46 @@ class TopologyGenerator:
             worker_id = (i % 3) + 1  # Distribuir entre los 3 workers
             vnc_port = (i % 5) + 1   # Máximo 5 puertos VNC por worker
             mac = generate_mac(worker_id, vm_id)
+                    
+            # Seleccionar flavor para esta VM si no se proporcionó uno por defecto
+            vm_flavor = default_flavor
+            if not vm_flavor:
+                print(f"\nSeleccionar flavor para {vm_name}:")
+                vm_flavor = select_flavor()
             
             # Añadir la VM a la topología
             vm = {
                 "name": vm_name,
                 "worker": worker_id,
-                "vlan": vlan_id,
                 "vnc_port": vnc_port,
-                "mac": mac
+                "mac": mac,
+                "flavor": get_flavor_data(vm_flavor)
             }
             self.manager.topology.add_vm(vm)
             new_vms.append(vm_name)
         
-        # Crear las conexiones lineales
+        # Crear las conexiones lineales con VLANs únicas
+        vlan_id_base = 100  # VLAN inicial
+        
         for i in range(num_vms - 1):
-            # Conexión con el siguiente nodo
+            vlan_id = vlan_id_base + i
+            
+            # Conexión bidireccional con el siguiente nodo
             self.manager.topology.add_connection({
                 "from": new_vms[i],
-                "to": new_vms[i+1]
+                "to": new_vms[i+1],
+                "vlan_id": vlan_id
             })
             
-            # Conexión en dirección opuesta (bidireccional)
             self.manager.topology.add_connection({
                 "from": new_vms[i+1],
-                "to": new_vms[i]
+                "to": new_vms[i],
+                "vlan_id": vlan_id
             })
         
         return new_vms
 
-    def create_custom_topology(self, num_vms, vlan_id=100):
+    def create_custom_topology(self, num_vms, default_flavor=None):
         """
         Crea una topología personalizada con conexiones definidas por el usuario
         Retorna una lista de los nombres de las VMs creadas
@@ -174,9 +224,6 @@ class TopologyGenerator:
         
         start_vm_id = self.manager.topology.get_next_vm_id()
 
-        # Asegurarse de que la VLAN exista en la topología
-        self._ensure_vlan_exists(vlan_id)
-
         new_vms = []
         
         # Crear las VMs
@@ -186,17 +233,25 @@ class TopologyGenerator:
             worker_id = (i % 3) + 1  # Distribuir entre los 3 workers
             vnc_port = (i % 5) + 1   # Máximo 5 puertos VNC por worker
             mac = generate_mac(worker_id, vm_id)
+                    
+            # Seleccionar flavor para esta VM si no se proporcionó uno por defecto
+            vm_flavor = default_flavor
+            if not vm_flavor:
+                print(f"\nSeleccionar flavor para {vm_name}:")
+                vm_flavor = select_flavor()
             
             # Añadir la VM a la topología
             vm = {
                 "name": vm_name,
                 "worker": worker_id,
-                "vlan": vlan_id,
                 "vnc_port": vnc_port,
-                "mac": mac
+                "mac": mac,
+                "flavor": get_flavor_data(vm_flavor)
             }
             self.manager.topology.add_vm(vm)
             new_vms.append(vm_name)
+            
+            print(f"VM {vm_name} creada con éxito en Worker {worker_id}, VNC Port {vnc_port}.")
         
         # Solicitar conexiones para cada VM
         for vm in new_vms:
@@ -211,17 +266,44 @@ class TopologyGenerator:
             # Solicitar conexiones
             connections_input = input("\nIngrese los números de las VMs a conectar (separados por coma) o 'todos' para conectar con todas: ")
             
+            # Mapeo para evitar crear conexiones duplicadas
+            connection_pairs = set()
+            
             if connections_input.lower() == 'todos':
                 # Conectar con todas las VMs
                 for available_vm in available_vms:
+                    # Verificar si esta conexión ya existe (en cualquier dirección)
+                    conn_pair = tuple(sorted([vm, available_vm]))
+                    if conn_pair in connection_pairs:
+                        continue
+                    
+                    # Encontrar el próximo ID de VLAN disponible
+                    used_vlans = [conn.get('vlan_id') for conn in self.manager.topology.connections if 'vlan_id' in conn]
+                    vlan_id = 100  # VLAN inicial
+                    while vlan_id in used_vlans and vlan_id <= 4094:
+                        vlan_id += 1
+                    
+                    if vlan_id > 4094:
+                        print("Error: Se ha alcanzado el límite de VLANs disponibles.")
+                        break
+                    
+                    # Crear conexión bidireccional con VLAN asignada
                     self.manager.topology.add_connection({
                         "from": vm,
-                        "to": available_vm
+                        "to": available_vm,
+                        "vlan_id": vlan_id
                     })
+                    
                     self.manager.topology.add_connection({
                         "from": available_vm,
-                        "to": vm
+                        "to": vm,
+                        "vlan_id": vlan_id
                     })
+                    
+                    print(f"Conexión establecida: {vm} <-> {available_vm} (VLAN {vlan_id})")
+                    
+                    # Registrar esta conexión como procesada
+                    connection_pairs.add(conn_pair)
             else:
                 # Conectar con las VMs seleccionadas
                 try:
@@ -230,15 +312,38 @@ class TopologyGenerator:
                         if 0 <= idx < len(available_vms):
                             target_vm = available_vms[idx]
                             
-                            # Crear conexión bidireccional
+                            # Verificar si esta conexión ya existe (en cualquier dirección)
+                            conn_pair = tuple(sorted([vm, target_vm]))
+                            if conn_pair in connection_pairs:
+                                continue
+                            
+                            # Encontrar el próximo ID de VLAN disponible
+                            used_vlans = [conn.get('vlan_id') for conn in self.manager.topology.connections if 'vlan_id' in conn]
+                            vlan_id = 100  # VLAN inicial
+                            while vlan_id in used_vlans and vlan_id <= 4094:
+                                vlan_id += 1
+                            
+                            if vlan_id > 4094:
+                                print("Error: Se ha alcanzado el límite de VLANs disponibles.")
+                                break
+                            
+                            # Crear conexión bidireccional con VLAN asignada
                             self.manager.topology.add_connection({
                                 "from": vm,
-                                "to": target_vm
+                                "to": target_vm,
+                                "vlan_id": vlan_id
                             })
+                            
                             self.manager.topology.add_connection({
                                 "from": target_vm,
-                                "to": vm
+                                "to": vm,
+                                "vlan_id": vlan_id
                             })
+                            
+                            print(f"Conexión establecida: {vm} <-> {target_vm} (VLAN {vlan_id})")
+                            
+                            # Registrar esta conexión como procesada
+                            connection_pairs.add(conn_pair)
                         else:
                             print(f"Índice fuera de rango: {idx+1}")
                 except ValueError:
@@ -246,7 +351,7 @@ class TopologyGenerator:
         
         return new_vms
     
-    def add_vm_to_topology(self):
+    def add_vm_to_topology(self, default_flavor=None):
         """Agrega VMs individuales a la topología existente"""
         from .ui import print_vms
         from .utils import validate_vlan_id
@@ -263,23 +368,6 @@ class TopologyGenerator:
                 print("Debe agregar al menos una VM.")
                 return
             
-            # Obtener la VLAN predeterminada (la primera VLAN utilizada en la topología existente)
-            default_vlan = None
-            if self.manager.topology.vms:
-                default_vlan = self.manager.topology.vms[0]["vlan"]
-            elif self.manager.topology.vlans:
-                default_vlan = self.manager.topology.vlans[0]["id"]
-            else:
-                default_vlan = 100
-            
-            # Solicitar el ID de VLAN con validación
-            vlan_input = input(f"Ingrese el ID de VLAN para las nuevas VMs (Enter para usar {default_vlan}): ")
-            vlan_id = validate_vlan_id(vlan_input)
-            if not vlan_input:
-                vlan_id = default_vlan
-            
-            # Asegurarse de que la VLAN exista
-            self._ensure_vlan_exists(vlan_id)
             
             # Obtener el próximo ID disponible
             start_vm_id = self.manager.topology.get_next_vm_id()
@@ -289,40 +377,59 @@ class TopologyGenerator:
             for i in range(num_vms):
                 print(f"vm{start_vm_id + i}")
             
-            # Crear las VMs
+            # Determinar el último worker y vnc_port utilizados para continuar la secuencia
+            last_vm_id = start_vm_id - 1
+            last_worker = 3  # Por defecto, para que el siguiente sea 1 ((3 % 3) + 1 = 1)
+            last_vnc_port = 5  # Por defecto, para que el siguiente sea 1 ((5 % 5) + 1 = 1)
+            
+            # Si hay VMs existentes, obtener el último worker y vnc_port
+            if self.manager.topology.vms:
+                # Intentar encontrar la VM con el mayor ID
+                for vm in self.manager.topology.vms:
+                    if vm["name"].startswith("vm"):
+                        try:
+                            vm_id = int(vm["name"][2:])
+                            if vm_id == last_vm_id:
+                                last_worker = vm["worker"]
+                                last_vnc_port = vm["vnc_port"]
+                        except ValueError:
+                            continue
+            
+            # Crear las VMs usando round-robin
             new_vms = []
             for i in range(num_vms):
                 vm_id = start_vm_id + i
                 vm_name = f"vm{vm_id}"
                 
-                worker_id = int(input(f"\nIngrese el número de worker para {vm_name} (1-3): ") or "1")
-                if worker_id < 1 or worker_id > 3:
-                    worker_id = (i % 3) + 1
-                    print(f"Worker inválido. Se asignará automáticamente: {worker_id}")
-                
-                vnc_port = int(input(f"Ingrese el puerto VNC para {vm_name} (1-3): ") or "1")
-                if vnc_port < 1 or vnc_port > 3:
-                    vnc_port = (i % 3) + 1
-                    print(f"Puerto VNC inválido. Se asignará automáticamente: {vnc_port}")
+                # Usar round-robin para worker y vnc_port, continuando la secuencia desde la última VM
+                worker_id = ((last_worker + i) % 3) + 1
+                vnc_port = ((last_vnc_port + i) % 5) + 1
                 
                 mac = generate_mac(worker_id, vm_id)
+                    
+                # Seleccionar flavor para esta VM si no se proporcionó uno por defecto
+                vm_flavor = default_flavor
+                if not vm_flavor:
+                    print(f"\nSeleccionar flavor para {vm_name}:")
+                    vm_flavor = select_flavor()
                 
                 # Añadir la VM a la topología
                 vm = {
                     "name": vm_name,
                     "worker": worker_id,
-                    "vlan": vlan_id,
                     "vnc_port": vnc_port,
-                    "mac": mac
+                    "mac": mac,
+                    "flavor": get_flavor_data(vm_flavor)
                 }
+                
                 self.manager.topology.add_vm(vm)
                 new_vms.append(vm_name)
                 
-                print(f"VM {vm_name} creada con éxito.")
+                print(f"VM {vm_name} creada con éxito en Worker {worker_id}, VNC Port {vnc_port}.")
             
             # Solicitar conexiones para cada VM
             print_vms(self.manager.topology)
-            
+        
             for vm in new_vms:
                 print(f"\nDefinir conexiones para {vm}:")
                 
@@ -342,17 +449,30 @@ class TopologyGenerator:
                         if 0 <= idx < len(available_vms):
                             target_vm = available_vms[idx]
                             
-                            # Crear conexión bidireccional
+                            # Encontrar el próximo ID de VLAN disponible
+                            used_vlans = [conn.get('vlan_id') for conn in self.manager.topology.connections if 'vlan_id' in conn]
+                            vlan_id = 100  # VLAN inicial
+                            while vlan_id in used_vlans and vlan_id <= 4094:
+                                vlan_id += 1
+                            
+                            if vlan_id > 4094:
+                                print("Error: Se ha alcanzado el límite de VLANs disponibles.")
+                                break
+                            
+                            # Crear conexión bidireccional con VLAN asignada
                             self.manager.topology.add_connection({
                                 "from": vm,
-                                "to": target_vm
-                            })
-                            self.manager.topology.add_connection({
-                                "from": target_vm,
-                                "to": vm
+                                "to": target_vm,
+                                "vlan_id": vlan_id
                             })
                             
-                            print(f"Conexión establecida: {vm} <-> {target_vm}")
+                            self.manager.topology.add_connection({
+                                "from": target_vm,
+                                "to": vm,
+                                "vlan_id": vlan_id
+                            })
+                            
+                            print(f"Conexión establecida: {vm} <-> {target_vm} (VLAN {vlan_id})")
                         else:
                             print(f"Índice fuera de rango: {idx+1}")
                 except ValueError:
@@ -363,8 +483,8 @@ class TopologyGenerator:
         except ValueError:
             print("Entrada inválida. Se espera un número entero.")
 
-    def add_predefined_topology(self):
-        """Agrega una topología predefinida a la existente"""
+    def add_predefined_topology(self, default_flavor=None):
+        """Agrega una topología predefinida a la existente usando round-robin para worker y vnc_port"""
         from .ui import print_vms, print_header
         from .utils import validate_vlan_id
         
@@ -391,24 +511,6 @@ class TopologyGenerator:
                 print("Debe agregar al menos una VM.")
                 return
             
-            # Obtener la VLAN predeterminada (la primera VLAN utilizada en la topología existente)
-            default_vlan = None
-            if self.manager.topology.vms:
-                default_vlan = self.manager.topology.vms[0]["vlan"]
-            elif self.manager.topology.vlans:
-                default_vlan = self.manager.topology.vlans[0]["id"]
-            else:
-                default_vlan = 100
-            
-            # Solicitar el ID de VLAN con validación
-            vlan_input = input(f"Ingrese el ID de VLAN para la nueva topología (Enter para usar {default_vlan}): ")
-            vlan_id = validate_vlan_id(vlan_input)
-            if not vlan_input:
-                vlan_id = default_vlan
-            
-            # Asegurarse de que la VLAN exista
-            self._ensure_vlan_exists(vlan_id)
-            
             # Obtener el próximo ID disponible
             start_vm_id = self.manager.topology.get_next_vm_id()
             
@@ -421,15 +523,15 @@ class TopologyGenerator:
             new_vms = []
             if topology_type == 1:
                 # Anillo
-                new_vms = self.create_ring_topology(num_vms, vlan_id, start_vm_id)
+                new_vms = self.create_ring_topology(num_vms, start_vm_id, default_flavor)
                 topology_name = "anillo"
             elif topology_type == 2:
                 # Estrella
-                new_vms = self.create_star_topology(num_vms, vlan_id, start_vm_id)
+                new_vms = self.create_star_topology(num_vms, start_vm_id, default_flavor)
                 topology_name = "estrella"
             elif topology_type == 3:
                 # Lineal
-                new_vms = self.create_linear_topology(num_vms, vlan_id, start_vm_id)
+                new_vms = self.create_linear_topology(num_vms, start_vm_id, default_flavor)
                 topology_name = "lineal"
             
             print(f"\nTopología de {topology_name} con {num_vms} VMs agregada con éxito.")
@@ -460,24 +562,36 @@ class TopologyGenerator:
                 # Crear conexiones entre las VMs seleccionadas
                 for new_vm in selected_new_vms:
                     for existing_vm in selected_existing_vms:
-                        # Crear conexión bidireccional
+                        # Encontrar el próximo ID de VLAN disponible
+                        used_vlans = [conn.get('vlan_id') for conn in self.manager.topology.connections if 'vlan_id' in conn]
+                        vlan_id = 100  # VLAN inicial
+                        while vlan_id in used_vlans and vlan_id <= 4094:
+                            vlan_id += 1
+                        
+                        if vlan_id > 4094:
+                            print("Error: Se ha alcanzado el límite de VLANs disponibles.")
+                            break
+                        
+                        # Crear conexión bidireccional con VLAN asignada
                         self.manager.topology.add_connection({
                             "from": new_vm,
-                            "to": existing_vm
-                        })
-                        self.manager.topology.add_connection({
-                            "from": existing_vm,
-                            "to": new_vm
+                            "to": existing_vm,
+                            "vlan_id": vlan_id
                         })
                         
-                        print(f"Conexión establecida: {new_vm} <-> {existing_vm}")
+                        self.manager.topology.add_connection({
+                            "from": existing_vm,
+                            "to": new_vm,
+                            "vlan_id": vlan_id
+                        })
+                        
+                        print(f"Conexión establecida: {new_vm} <-> {existing_vm} (VLAN {vlan_id})")
                 
             except (ValueError, IndexError):
                 print("Entrada inválida o índice fuera de rango.")
             
         except ValueError:
             print("Entrada inválida. Se espera un número entero.")
-
 
     def _ensure_vlan_exists(self, vlan_id):
         """

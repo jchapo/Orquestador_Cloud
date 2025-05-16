@@ -6,7 +6,8 @@ Este módulo implementa la interfaz de usuario para interactuar con el sistema.
 
 import sys
 from .utils import clear_screen, print_header, print_vms, print_connections
-from .connections import manage_connections  # Importar el nuevo módulo
+from .connections import manage_connections  # Importar el módulo de conexiones
+from .flavor_manager import manage_flavors, verify_flavor_exists, select_flavor  # Importar funciones de flavor
 
 class TopologyUI:
     """Clase que implementa la interfaz de usuario para la gestión de topologías"""
@@ -23,10 +24,11 @@ class TopologyUI:
             print("1. Crear nueva topología predefinida")
             print("2. Crear nueva topología personalizada")
             print("3. Modificar topología existente")
-            print("4. Salir")
+            print("4. Gestionar flavors")
+            print("5. Salir")
             
             try:
-                option = int(input("\nSeleccione una opción (1-4): "))
+                option = int(input("\nSeleccione una opción (1-5): "))
                 
                 if option == 1:
                     self.create_new_predefined_topology()
@@ -40,6 +42,11 @@ class TopologyUI:
                     self.modify_existing_topology()
                 
                 elif option == 4:
+                    # Gestionar flavors
+                    manage_flavors()
+                    input("\nPresione Enter para continuar...")
+                
+                elif option == 5:
                     print("\n¡Hasta luego!")
                     sys.exit(0)
                 
@@ -59,6 +66,12 @@ class TopologyUI:
         from .utils import print_header, print_vms, print_connections, validate_vlan_id
         
         print_header("Crear nueva topología predefinida")
+        
+        # Verificar que exista al menos un flavor
+        if not verify_flavor_exists():
+            print("Error: No se pueden crear VMs sin flavors definidos.")
+            print("Por favor, cree al menos un flavor primero.")
+            return
         
         # Inicializar una nueva topología
         self.manager.topology = self.manager.topology.__class__()
@@ -83,36 +96,35 @@ class TopologyUI:
                 print("Debe crear al menos una VM.")
                 return
             
-            # Solicitar el ID de VLAN con validación y permitir reintentos
-            while True:
-                vlan_input = input("Ingrese el ID de VLAN para la topología (Enter para usar 100): ")
-                try:
-                    vlan_id = validate_vlan_id(vlan_input)
-                    break  # Salir del bucle si es válido
-                except ValueError as e:
-                    print(f"❌ Entrada inválida: {e}")
-
-            #enable_vlan_comm = input("¿Habilitar comunicación entre VLANs? (s/n): ").lower() == 's'
-            #self.manager.topology.settings["enable_vlan_communication"] = enable_vlan_comm
+            # Preguntar si se usará el mismo flavor para todas las VMs
+            same_flavor = input("\n¿Usar el mismo flavor para todas las VMs? (s/n): ").lower() == 's'
+            selected_flavor = None
+            
+            if same_flavor:
+                print("\nSeleccione el flavor para todas las VMs:")
+                selected_flavor = select_flavor()
+                if not selected_flavor:
+                    print("Operación cancelada.")
+                    return
             
             # Crear la topología seleccionada
             if topology_type == 1:
                 # Anillo
-                self.manager.create_ring_topology(num_vms, vlan_id)
+                self.manager.create_ring_topology(num_vms, start_vm_id=None, default_flavor=selected_flavor)
                 topology_name = "anillo"
             elif topology_type == 2:
                 # Estrella
-                self.manager.create_star_topology(num_vms, vlan_id)
+                self.manager.create_star_topology(num_vms, start_vm_id=None, default_flavor=selected_flavor)
                 topology_name = "estrella"
             elif topology_type == 3:
                 # Lineal
-                self.manager.create_linear_topology(num_vms, vlan_id)
+                self.manager.create_linear_topology(num_vms, start_vm_id=None, default_flavor=selected_flavor)
                 topology_name = "lineal"
             
             print(f"\nTopología de {topology_name} con {num_vms} VMs creada con éxito.")
 
             # Configurar opciones de red
-            enable_internet = input("\n¿Habilitar acceso a Internet para la topología? (s/n): ").lower() == 's'
+            enable_internet = input("\n¿Habilitar acceso a Internet para alguna vm? (s/n): ").lower() == 's'
             self.manager.topology.settings["enable_internet"] = enable_internet
             
             # Configurar acceso a Internet para VMs específicas (solo si el acceso a Internet está habilitado)
@@ -172,6 +184,12 @@ class TopologyUI:
         
         print_header("Crear nueva topología personalizada")
         
+        # Verificar que exista al menos un flavor
+        if not verify_flavor_exists():
+            print("Error: No se pueden crear VMs sin flavors definidos.")
+            print("Por favor, cree al menos un flavor primero.")
+            return
+        
         # Inicializar una nueva topología
         self.manager.topology = self.manager.topology.__class__()
         self.manager.io.current_topology_file = None
@@ -185,20 +203,19 @@ class TopologyUI:
                 print("Debe crear al menos una VM.")
                 return
             
-            # Solicitar el ID de VLAN con validación y permitir reintentos
-            while True:
-                vlan_input = input("Ingrese el ID de VLAN para la topología (Enter para usar 100): ")
-                try:
-                    vlan_id = validate_vlan_id(vlan_input)
-                    break  # Salir del bucle si es válido
-                except ValueError as e:
-                    print(f"❌ Entrada inválida: {e}")
+            # Preguntar si se usará el mismo flavor para todas las VMs
+            same_flavor = input("\n¿Usar el mismo flavor para todas las VMs? (s/n): ").lower() == 's'
+            selected_flavor = None
             
-            #enable_vlan_comm = input("¿Habilitar comunicación entre VLANs? (s/n): ").lower() == 's'
-            #self.manager.topology.settings["enable_vlan_communication"] = enable_vlan_comm
+            if same_flavor:
+                print("\nSeleccione el flavor para todas las VMs:")
+                selected_flavor = select_flavor()
+                if not selected_flavor:
+                    print("Operación cancelada.")
+                    return
             
             # Crear topología personalizada
-            self.manager.create_custom_topology(num_vms, vlan_id)
+            self.manager.create_custom_topology(num_vms, default_flavor=selected_flavor)
 
             # Configurar opciones de red
             enable_internet = input("\n¿Habilitar acceso a Internet para la topología? (s/n): ").lower() == 's'
@@ -284,12 +301,14 @@ class TopologyUI:
             print("2. Agregar topología predefinida")
             print("3. Configurar acceso a Internet")
             print("4. Configurar comunicación entre VLANs")
-            print("5. Guardar cambios")
-            print("6. Ejecutar topología")
-            print("7. Volver al menú principal")
+            print("5. Configurar flavors de VMs")
+            print("6. Gestionar conexiones")
+            print("7. Guardar cambios")
+            print("8. Ejecutar topología")
+            print("9. Volver al menú principal")
             
             try:
-                option = int(input("\nSeleccione una opción (1-7): "))
+                option = int(input("\nSeleccione una opción (1-9): "))
                 
                 if option == 1:
                     self.manager.generator.add_vm_to_topology()
@@ -304,16 +323,22 @@ class TopologyUI:
                     self.set_vlan_communication()
                 
                 elif option == 5:
+                    self.configure_vm_flavors()
+                
+                elif option == 6:
+                    self.manager.manage_connections()
+                
+                elif option == 7:
                     save_file = input("\nIngrese el nombre del archivo para guardar la topología (o Enter para usar el mismo archivo): ")
                     if save_file:
                         self.manager.save_topology(save_file)
                     else:
                         self.manager.save_topology()
                 
-                elif option == 6:
+                elif option == 8:
                     self.manager.execute_topology()
                 
-                elif option == 7:
+                elif option == 9:
                     break
                 
                 else:
@@ -322,6 +347,91 @@ class TopologyUI:
             except ValueError:
                 print("Entrada inválida. Se espera un número entero.")
     
+    def configure_vm_flavors(self):
+        """Configura los flavors de las VMs existentes"""
+        from .utils import print_header
+        from .flavor_manager import select_flavor, get_flavor_data
+        
+        if not self.manager.topology.vms:
+            print("No hay VMs definidas. Cree una topología primero.")
+            return
+        
+        print_header("Configurar Flavors de VMs")
+        
+        # Verificar que existan flavors
+        if not verify_flavor_exists():
+            print("Error: No hay flavors disponibles.")
+            print("Por favor, cree al menos un flavor primero.")
+            return
+        
+        # Mostrar configuración actual de flavors
+        print("\nConfiguración actual de flavors:")
+        print("-" * 70)
+        print(f"{'VM':<10} {'Flavor':<15} {'CPU':<5} {'RAM (MB)':<10} {'Disco (GB)':<10}")
+        print("-" * 70)
+        
+        for vm in self.manager.topology.vms:
+            flavor_name = vm.get("flavor", "No definido")
+            if flavor_name and flavor_name != "No definido":
+                flavor_data = get_flavor_data(flavor_name)
+                if flavor_data:
+                    print(f"{vm['name']:<10} {flavor_name:<15} {flavor_data['cpu']:<5} {flavor_data['ram']:<10} {flavor_data['disk']:<10}")
+                else:
+                    print(f"{vm['name']:<10} {flavor_name:<15} (Flavor no encontrado)")
+            else:
+                print(f"{vm['name']:<10} No definido")
+        
+        print("-" * 70)
+        
+        # Menú de configuración
+        print("\nOpciones de configuración:")
+        print("1. Asignar el mismo flavor a todas las VMs")
+        print("2. Configurar flavor para cada VM individualmente")
+        print("3. Volver al menú anterior")
+        
+        try:
+            option = int(input("\nSeleccione una opción (1-3): "))
+            
+            if option == 1:
+                # Asignar el mismo flavor a todas las VMs
+                print("\nSeleccione el flavor para asignar a todas las VMs:")
+                flavor_name = select_flavor()
+                
+                if flavor_name:
+                    # Actualizar todas las VMs
+                    for vm in self.manager.topology.vms:
+                        vm["flavor"] = flavor_name
+                    
+                    print(f"\nTodas las VMs ahora tienen asignado el flavor '{flavor_name}'.")
+                else:
+                    print("Operación cancelada.")
+            
+            elif option == 2:
+                # Configurar flavor para cada VM individualmente
+                for i, vm in enumerate(self.manager.topology.vms):
+                    current_flavor = vm.get("flavor", "No definido")
+                    print(f"\nVM: {vm['name']} (Flavor actual: {current_flavor})")
+                    
+                    change = input("¿Cambiar el flavor de esta VM? (s/n): ").lower() == 's'
+                    if change:
+                        print(f"Seleccione el nuevo flavor para {vm['name']}:")
+                        new_flavor = select_flavor()
+                        
+                        if new_flavor:
+                            vm["flavor"] = new_flavor
+                            print(f"Flavor de {vm['name']} actualizado a '{new_flavor}'.")
+                        else:
+                            print("No se realizó ningún cambio.")
+            
+            elif option == 3:
+                # Volver al menú anterior
+                return
+            
+            else:
+                print("Opción inválida.")
+        
+        except ValueError:
+            print("Entrada inválida. Se espera un número entero.")
 
     def set_internet_access(self):
         """Configura qué VMs tendrán acceso a Internet"""

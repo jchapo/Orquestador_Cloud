@@ -1,0 +1,6 @@
+{
+  "name": "medium",
+  "cpu": 2,
+  "ram": 2048,
+  "disk": 20
+}

@@ -11,28 +11,28 @@ from topology_manager import TopologyManager
 
 def main():
     """Función principal"""
-    # Verificar que estamos en el directorio correcto (donde están los scripts bash)
+
+    scripts_dir = os.path.join(os.getcwd(), "scripts")
+
     required_files = [
         "create_flexible_topology.sh",
     ]
 
     for file in required_files:
-        if not os.path.exists(file):
-            print(f"Error: No se encontró el archivo {file}")
-            print("Asegúrese de ejecutar este programa desde el directorio donde están los scripts de orquestación.")
+        full_path = os.path.join(scripts_dir, file)
+        if not os.path.exists(full_path):
+            print(f"Error: No se encontró el archivo {file} en la carpeta 'scripts/'")
+            print("Asegúrese de ejecutar este programa desde el directorio base del proyecto donde exista la carpeta 'scripts/'.")
             sys.exit(1)
 
-    # Asegurarse de que los scripts tienen permisos de ejecución
-    for file in required_files:
-        if not os.access(file, os.X_OK):
+        if not os.access(full_path, os.X_OK):
             try:
-                os.chmod(file, 0o755)
+                os.chmod(full_path, 0o755)
                 print(f"Se añadieron permisos de ejecución a {file}")
             except Exception as e:
                 print(f"Advertencia: No se pudieron añadir permisos de ejecución a {file}: {e}")
 
     try:
-        # Iniciar el gestor de topologías
         manager = TopologyManager()
         manager.run()
     except KeyboardInterrupt:

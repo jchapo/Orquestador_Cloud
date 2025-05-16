@@ -5,32 +5,30 @@ Este repositorio contiene una aplicación para la gestión y creación de topolo
 ## Estructura del Proyecto
 
 ```
-topology_manager/
-├── __pycache__/
-├── ana/
-├── anapaula/
-├── anillo_topo/
+cloud-orchestrator/
+├── README.md
+├── add_interface.sh
+├── ana
+├── ana_vlan_topology.png
 ├── auth.py
 ├── cleanup_topology.sh
 ├── connect_vlans.sh
 ├── correo.py
 ├── create_flexible_topology.sh
-├── create_multi_interface_vm.sh
 ├── create_network.sh
-├── create_topology.sh
 ├── create_vm.sh
+├── flavors/
+├── images/
 ├── initialize_headnode.sh
 ├── initialize_worker.sh
 ├── internet_access.sh
-├── juan/
 ├── main.py
 ├── menus/
+├── main.py
 ├── network_manager.py
-├── topo_exa/
+├── quick_cleanup.sh
 ├── topologia_app.py
-├── topology_20250512_213515.json
 ├── topology_manager/
-├── visualize_topology.py
 ├── visualize_vlan_topology.py
 └── vm_topology_creator.py
 ```

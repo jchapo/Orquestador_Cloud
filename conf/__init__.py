@@ -2,10 +2,6 @@ from conf.conexion import Conexion, DatabasePool
 
 __all__ = ['Conexion', 'DatabasePool']
 
-__version__ = '1.0.0'
-__author__ = 'PUCP Cloud Orchestrator Team'
-__description__ = 'Módulo de configuración para el PUCP Private Cloud Orchestrator'
-
 DB_CONFIG = {
     'host': '10.88.0.6',
     'port': '5432',

@@ -136,6 +136,115 @@ class AuthenticationModule:
         except Exception as e:
             return {"error": f"Registration error: {str(e)}"}
 
+    def delete_user(self, user_id):
+        try:
+            existing_user = self.db_connection.select(
+                'id_usuario, username',
+                'usuario',
+                'id_usuario = %s',
+                (user_id,)
+            )
+
+            if not existing_user:
+                return {"error": "User not found"}
+
+            self.db_connection.execute_query(
+                "DELETE FROM usuario WHERE id_usuario = %s",
+                (user_id,),
+                fetch=False
+            )
+
+            return {
+                "success": True,
+                "message": f"User {existing_user[0][1]} deleted successfully"
+            }
+
+        except Exception as e:
+            return {"error": f"User deletion error: {str(e)}"}
+
+    def update_user_field(self, user_id, field, value):
+        try:
+            existing_user = self.db_connection.select(
+                'id_usuario',
+                'usuario',
+                'id_usuario = %s',
+                (user_id,)
+            )
+
+            if not existing_user:
+                return {"error": "User not found"}
+
+            valid_fields = ["username", "rol_id"]
+            if field not in valid_fields:
+                return {"error": f"Invalid field: {field}"}
+
+            if field == "rol_id":
+                try:
+                    value = int(value)
+                    # Verificar que el rol existe
+                    role = self.db_connection.select(
+                        'id_rol',
+                        'rol',
+                        'id_rol = %s',
+                        (value,)
+                    )
+                    if not role:
+                        return {"error": "Invalid role ID"}
+                except ValueError:
+                    return {"error": "Role ID must be a number"}
+
+            if field == "username":
+                existing_username = self.db_connection.select(
+                    'id_usuario',
+                    'usuario',
+                    'username = %s AND id_usuario != %s',
+                    (value, user_id)
+                )
+                if existing_username:
+                    return {"error": "Username already in use"}
+
+            self.db_connection.execute_query(
+                f"UPDATE usuario SET {field} = %s WHERE id_usuario = %s",
+                (value, user_id),
+                fetch=False
+            )
+
+            return {
+                "success": True,
+                "message": f"User {field} updated successfully to '{value}'"
+            }
+
+        except Exception as e:
+            return {"error": f"User update error: {str(e)}"}
+
+    def update_user_password(self, user_id, new_password):
+        try:
+            existing_user = self.db_connection.select(
+                'id_usuario',
+                'usuario',
+                'id_usuario = %s',
+                (user_id,)
+            )
+
+            if not existing_user:
+                return {"error": "User not found"}
+
+            hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+
+            self.db_connection.execute_query(
+                "UPDATE usuario SET password_hash = %s WHERE id_usuario = %s",
+                (hashed_password.decode('utf-8'), user_id),
+                fetch=False
+            )
+
+            return {
+                "success": True,
+                "message": "User password updated successfully"
+            }
+
+        except Exception as e:
+            return {"error": f"Password update error: {str(e)}"}
+
     def change_password(self, token, current_password, new_password):
         try:
             token_data = self.verify_token(token)

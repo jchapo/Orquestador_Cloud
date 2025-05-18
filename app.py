@@ -5,6 +5,8 @@ from modules.Authentication import AuthenticationModule
 import getpass
 import time
 import json
+import subprocess
+
 
 class CloudOrchestrator:
     def __init__(self):
@@ -74,7 +76,7 @@ class CloudOrchestrator:
             self.print_header()
             print("\nMENU PRINCIPAL")
             if self.current_user and self.current_user['role'] == 'Administrador':
-                print("1. Panel de Administración de Slices")
+                print("1. Administrador de topología de red")
                 print("2. Gestión de Usuarios")
                 print("3. Configuración de Usuario")
                 print("4. Configurar")
@@ -83,7 +85,7 @@ class CloudOrchestrator:
                 print("7. Definir zona de disponibilidad")
                 print("8. Cerrar sesión")
             else:
-                print("1. Panel de Administración de Slices")
+                print("1. Administrador de topología de red")
                 print("2. Configuración de Usuario")
                 print("3. Listar slices")
                 print("4. Cerrar sesión")
@@ -92,7 +94,7 @@ class CloudOrchestrator:
 
             if self.current_user and self.current_user['role'] == 'Administrador':
                 if option == "1":
-                    self.slice_management_menu()
+                    subprocess.run(["python3", "topologia_app.py"])
                 elif option == "2":
                     self.user_management_menu()
                 elif option == "3":
@@ -112,7 +114,7 @@ class CloudOrchestrator:
                     time.sleep(1)
             else:
                 if option == "1":
-                    self.slice_management_menu()
+                    subprocess.run(["python3", "topologia_app.py"])
                 elif option == "2":
                     self.user_settings_menu()
                 elif option == "3":

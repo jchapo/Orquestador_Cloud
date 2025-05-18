@@ -18,7 +18,7 @@ echo ""
 echo -e "${VERDE}Conectando al servidor...${NORMAL}"
 echo ""
 
-ssh -t -p 5801 ubuntu@10.20.12.252 "cd cloud-orchestrator && python3 app.py; exit"
+nc 10.20.12.252 3080
 
 echo ""
 echo -e "${ROJO}La sesión ha finalizado.${NORMAL}"

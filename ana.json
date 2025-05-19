@@ -1,0 +1,99 @@
+{
+  "name": "ana",
+  "nodes": {
+    "head_node": "localhost",
+    "ofs_node": "10.0.10.5",
+    "workers": [
+      "10.0.10.2",
+      "10.0.10.3",
+      "10.0.10.4"
+    ]
+  },
+  "interfaces": {
+    "head_internet": "ens3",
+    "head_ofs": "ens4",
+    "worker_ofs": "ens4"
+  },
+  "vlans": [],
+  "vms": [
+    {
+      "name": "vm1",
+      "worker": 1,
+      "vnc_port": 1,
+      "mac": "52:54:00:01:01:4e",
+      "flavor": {
+        "name": "tiny",
+        "cpu": 1,
+        "ram": 512,
+        "disk": 1,
+        "image": "ubuntu.img"
+      }
+    },
+    {
+      "name": "vm2",
+      "worker": 2,
+      "vnc_port": 2,
+      "mac": "52:54:00:02:02:aa",
+      "flavor": {
+        "name": "tiny",
+        "cpu": 1,
+        "ram": 512,
+        "disk": 1,
+        "image": "ubuntu.img"
+      }
+    },
+    {
+      "name": "vm3",
+      "worker": 3,
+      "vnc_port": 3,
+      "mac": "52:54:00:03:03:79",
+      "flavor": {
+        "name": "tiny",
+        "cpu": 1,
+        "ram": 512,
+        "disk": 1,
+        "image": "ubuntu.img"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "vm1",
+      "to": "vm2",
+      "vlan_id": 100
+    },
+    {
+      "from": "vm2",
+      "to": "vm1",
+      "vlan_id": 100
+    },
+    {
+      "from": "vm2",
+      "to": "vm3",
+      "vlan_id": 101
+    },
+    {
+      "from": "vm3",
+      "to": "vm2",
+      "vlan_id": 101
+    },
+    {
+      "from": "vm3",
+      "to": "vm1",
+      "vlan_id": 102
+    },
+    {
+      "from": "vm1",
+      "to": "vm3",
+      "vlan_id": 102
+    }
+  ],
+  "settings": {
+    "enable_internet": true,
+    "enable_vlan_communication": false
+  },
+  "vm_internet_access": [
+    "vm1",
+    "vm3"
+  ]
+}

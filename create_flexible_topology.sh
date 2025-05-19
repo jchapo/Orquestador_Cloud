@@ -132,6 +132,8 @@ VM_INTERNET_ACCESS=($(jq -r '.vm_internet_access[]' "$JSON_FILE" 2>/dev/null))
 # Inicializar las estructuras de datos para las VMs
 declare -A VM_VLANS
 declare -A VM_MAC_ADDRESSES
+declare -A VM_VNC_PORTS
+declare -A VM_WORKER_INFO
 
 # Validar VM_COUNT
 VM_COUNT=$(jq '.vms | length' "$JSON_FILE")
@@ -142,11 +144,28 @@ fi
 
 echo "Número de VMs: $VM_COUNT"
 
-# Inicializar VM_VLANS para cada VM y almacenar MACs
+# Inicializar VM_VLANS para cada VM y almacenar MACs y VNC Ports
 for ((i=0; i<$VM_COUNT; i++)); do
     VM_NAME=$(jq -r ".vms[$i].name" "$JSON_FILE")
     VM_MAC_ADDRESSES[$VM_NAME]=$(jq -r ".vms[$i].mac" "$JSON_FILE")
     VM_VLANS[$VM_NAME]=""
+    
+    # Guardar el VNC port y la info del worker
+    VNC_PORT=$(jq -r ".vms[$i].vnc_port" "$JSON_FILE")
+    WORKER_IDX=$(jq -r ".vms[$i].worker" "$JSON_FILE")
+    
+    # Ajustar VNC_PORT para que esté dentro del rango válido (5900-65535)
+    if [ "$VNC_PORT" -lt 5900 ]; then
+        VNC_PORT_REAL=$((5900 + VNC_PORT))
+    else
+        VNC_PORT_REAL=$VNC_PORT
+    fi
+    
+    VM_VNC_PORTS[$VM_NAME]=$VNC_PORT_REAL
+    
+    # Worker real (convertir índice a dirección)
+    WORKER_ADDRESS=$(echo $WORKERS | cut -d' ' -f$WORKER_IDX)
+    VM_WORKER_INFO[$VM_NAME]="$WORKER_IDX:$WORKER_ADDRESS"
 done
 
 # Recopilar las VLANs para cada VM desde las conexiones
@@ -225,12 +244,6 @@ for ((i=0; i<$VM_COUNT; i++)); do
             fi
         fi
     done
-
-    # # Interfaz para Internet (VLAN 10) si es necesario
-    # if printf '%s\n' "${VM_INTERNET_ACCESS[@]}" | grep -q -x "$VM_NAME"; then
-    #     echo "Añadiendo interfaz para acceso a Internet (VLAN 10) a $VM_NAME..."
-    #     ssh ubuntu@$WORKER_ADDRESS "sudo bash /tmp/add_interface.sh \"$VM_NAME\" br-int 10"
-    # fi
 
     # Una vez añadidas todas las interfaces, iniciar la VM
     echo "Iniciando VM $VM_NAME..."
@@ -342,7 +355,24 @@ echo "- $VM_COUNT VMs distribuidas en $WORKER_COUNT Workers"
 for ((i=0; i<$VM_COUNT; i++)); do
     VM_NAME=$(jq -r ".vms[$i].name" "$JSON_FILE")
     WORKER_IDX=$(jq -r ".vms[$i].worker" "$JSON_FILE")
-    echo "  - $VM_NAME en Worker $WORKER_IDX (VLANs: ${VM_VLANS[$VM_NAME]})"
+    WORKER_ADDRESS=$(echo $WORKERS | cut -d' ' -f$WORKER_IDX)
+    VNC_PORT=$(jq -r ".vms[$i].vnc_port" "$JSON_FILE")
+    if [ "$VNC_PORT" -lt 5900 ]; then
+        VNC_PORT_REAL=$((5900 + VNC_PORT))
+    else
+        VNC_PORT_REAL=$VNC_PORT
+    fi
+    
+    CPU=$(jq -r ".vms[$i].flavor.cpu" "$JSON_FILE")
+    RAM=$(jq -r ".vms[$i].flavor.ram" "$JSON_FILE")
+    DISK=$(jq -r ".vms[$i].flavor.disk" "$JSON_FILE")
+    
+    INTERNET_ACCESS=""
+    if printf '%s\n' "${VM_INTERNET_ACCESS[@]}" | grep -q -x "$VM_NAME"; then
+        INTERNET_ACCESS=" (Con acceso a Internet)"
+    fi
+    
+    echo "  - $VM_NAME en Worker $WORKER_IDX ($WORKER_ADDRESS) - VNC: $VNC_PORT_REAL - CPU: $CPU, RAM: ${RAM}MB, Disk: ${DISK}GB - VLANs: ${VM_VLANS[$VM_NAME]}$INTERNET_ACCESS"
 done
 
 echo "- $CONNECTION_COUNT conexiones configuradas entre VMs"
@@ -357,4 +387,9 @@ if [ "$ENABLE_INTERNET" = "true" ] && [ ${#VM_INTERNET_ACCESS[@]} -gt 0 ]; then
     echo "- VMs con acceso a Internet: ${VM_INTERNET_ACCESS[*]}"
 fi
 
+echo ""
+echo "Para conectarte a una VM mediante VNC:"
+echo "1. Establece un túnel SSH al worker: ssh -L <puerto_local>:<worker_ip>:<puerto_vnc> ubuntu@<worker_ip>"
+echo "2. Conecta tu cliente VNC a localhost:<puerto_local>"
+echo ""
 echo "La topología está lista para su uso."

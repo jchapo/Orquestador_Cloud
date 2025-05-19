@@ -29,7 +29,7 @@ class AuthenticationModule:
                         'user_id': user[0][0],
                         'username': user[0][1],
                         'rol_id': user[0][3],
-                        'exp': datetime.utcnow() + timedelta(hours=1)
+                        'exp': datetime.utcnow() + timedelta(minutes=60)
                     },
                     JWT_SECRET_KEY,
                     algorithm="HS256"

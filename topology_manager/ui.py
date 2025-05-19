@@ -5,6 +5,8 @@ Este módulo implementa la interfaz de usuario para interactuar con el sistema.
 """
 
 import sys
+import os
+import subprocess
 from .utils import clear_screen, print_header, print_vms, print_connections
 from .connections import manage_connections  # Importar el módulo de conexiones
 from .flavor_manager import manage_flavors, verify_flavor_exists, select_flavor  # Importar funciones de flavor
@@ -24,29 +26,33 @@ class TopologyUI:
             print("1. Crear nueva topología predefinida")
             print("2. Crear nueva topología personalizada")
             print("3. Modificar topología existente")
-            print("4. Gestionar flavors")
-            print("5. Salir")
+            print("4. Eliminar topología existente")
+            print("5. Gestionar flavors")
+            print("6. Salir")
             
             try:
-                option = int(input("\nSeleccione una opción (1-5): "))
+                option = int(input("\nSeleccione una opción (1-6): "))
                 
                 if option == 1:
                     self.create_new_predefined_topology()
-                    input("\nPresione Enter para continuar...")
                 
                 elif option == 2:
                     self.create_new_custom_topology()
-                    input("\nPresione Enter para continuar...")
                 
                 elif option == 3:
                     self.modify_existing_topology()
                 
                 elif option == 4:
+                    # Eliminar topología existente
+                    self.manager.remove_topology()
+                    input("\nPresione Enter para continuar...")
+                
+                elif option == 5:
                     # Gestionar flavors
                     manage_flavors()
                     input("\nPresione Enter para continuar...")
                 
-                elif option == 5:
+                elif option == 6:
                     print("\n¡Hasta luego!")
                     sys.exit(0)
                 
@@ -60,7 +66,50 @@ class TopologyUI:
             except KeyboardInterrupt:
                 print("\n\nOperación cancelada por el usuario.")
                 sys.exit(0)
-                
+    
+    def visualize_topology(self, topology_file):
+        """Visualiza la topología usando visualize_vlan_topology.py"""
+        try:
+            script_path = "visualize_vlan_topology.py"
+            if not os.path.exists(script_path):
+                print(f"Advertencia: No se encuentra el visualizador {script_path}.")
+                return False
+            
+            # Verificar que el script tenga permisos de ejecución
+            if not os.access(script_path, os.X_OK):
+                os.chmod(script_path, 0o755)
+                print(f"Se añadieron permisos de ejecución a {script_path}")
+            
+            # Ejecutar el script de visualización
+            print(f"\nGenerando visualización de la topología...")
+            cmd = f"python3 {script_path} {topology_file}"
+            
+            # Ejecutar en modo no bloqueante para mostrar la visualización mientras continúa la ejecución
+            subprocess.Popen(cmd, shell=True)
+            print(f"Visualización generada en {os.path.splitext(topology_file)[0]}_vlan_topology.png")
+            return True
+        except Exception as e:
+            print(f"Error al visualizar la topología: {e}")
+            return False
+    
+    def save_and_post_actions(self, topology_name):
+        """Guarda la topología y ofrece visualizar y ejecutar"""
+        # Usar el nombre de la topología como nombre de archivo
+        file_name = f"{topology_name}.json"
+        result = self.manager.save_topology(file_name)
+        
+        if result:
+            print_vms(self.manager.topology)
+            print_connections(self.manager.topology)
+            
+            # Visualizar la topología
+            self.visualize_topology(file_name)
+            
+            # Preguntar si se quiere ejecutar la topología
+            execute = input("\n¿Desea ejecutar la topología ahora? (s/n): ").lower() == 's'
+            if execute:
+                self.manager.execute_topology()
+    
     def create_new_predefined_topology(self):
         """Crea una nueva topología predefinida desde cero"""
         from .utils import print_header, print_vms, print_connections, validate_vlan_id
@@ -71,6 +120,7 @@ class TopologyUI:
         if not verify_flavor_exists():
             print("Error: No se pueden crear VMs sin flavors definidos.")
             print("Por favor, cree al menos un flavor primero.")
+            input("\nPresione Enter para continuar...")
             return
         
         # Inicializar una nueva topología
@@ -89,11 +139,13 @@ class TopologyUI:
             topology_type = int(input("\nIngrese su elección (1-3): "))
             if topology_type < 1 or topology_type > 3:
                 print("Opción inválida.")
+                input("\nPresione Enter para continuar...")
                 return
             
             num_vms = int(input("\n¿Cuántas VMs tendrá la topología? "))
             if num_vms <= 0:
                 print("Debe crear al menos una VM.")
+                input("\nPresione Enter para continuar...")
                 return
             
             # Preguntar si se usará el mismo flavor para todas las VMs
@@ -105,6 +157,7 @@ class TopologyUI:
                 selected_flavor = select_flavor()
                 if not selected_flavor:
                     print("Operación cancelada.")
+                    input("\nPresione Enter para continuar...")
                     return
             
             # Crear la topología seleccionada
@@ -160,22 +213,17 @@ class TopologyUI:
                 print("El acceso a Internet está deshabilitado para esta topología.")
                 self.manager.topology.vm_internet_access = []
             
-            # Guardar la topología
-            save_file = input("\nIngrese el nombre del archivo para guardar la topología (o Enter para usar un nombre automático): ")
-            if save_file:
-                self.manager.save_topology(save_file)
-            else:
-                self.manager.save_topology()
+            # Guardar y ofrecer ejecutar
+            self.save_and_post_actions(self.manager.topology.name)
             
-            # Mostrar resumen
-            print_vms(self.manager.topology)
-            print_connections(self.manager.topology)
+            input("\nPresione Enter para continuar...")
             
         except ValueError as e:
             if "entre" in str(e):
                 print(f"Error de rango: {e}")
             else:
                 print(f"Entrada inválida: {e}")
+            input("\nPresione Enter para continuar...")
 
 
     def create_new_custom_topology(self):
@@ -188,6 +236,7 @@ class TopologyUI:
         if not verify_flavor_exists():
             print("Error: No se pueden crear VMs sin flavors definidos.")
             print("Por favor, cree al menos un flavor primero.")
+            input("\nPresione Enter para continuar...")
             return
         
         # Inicializar una nueva topología
@@ -201,6 +250,7 @@ class TopologyUI:
             num_vms = int(input("\n¿Cuántas VMs tendrá la topología? "))
             if num_vms <= 0:
                 print("Debe crear al menos una VM.")
+                input("\nPresione Enter para continuar...")
                 return
             
             # Preguntar si se usará el mismo flavor para todas las VMs
@@ -212,6 +262,7 @@ class TopologyUI:
                 selected_flavor = select_flavor()
                 if not selected_flavor:
                     print("Operación cancelada.")
+                    input("\nPresione Enter para continuar...")
                     return
             
             # Crear topología personalizada
@@ -254,19 +305,14 @@ class TopologyUI:
                 print("El acceso a Internet está deshabilitado para esta topología.")
                 self.manager.topology.vm_internet_access = []
             
-            # Guardar la topología
-            save_file = input("\nIngrese el nombre del archivo para guardar la topología (o Enter para usar un nombre automático): ")
-            if save_file:
-                self.manager.save_topology(save_file)
-            else:
-                self.manager.save_topology()
+            # Guardar y ofrecer ejecutar
+            self.save_and_post_actions(self.manager.topology.name)
             
-            # Mostrar resumen
-            print_vms(self.manager.topology)
-            print_connections(self.manager.topology)
+            input("\nPresione Enter para continuar...")
             
         except ValueError:
             print("Entrada inválida. Se espera un número entero.")
+            input("\nPresione Enter para continuar...")
 
 
     def modify_existing_topology(self):
@@ -279,9 +325,11 @@ class TopologyUI:
         file_path = input("Ingrese la ruta del archivo de topología a modificar: ")
         if not file_path:
             print("Operación cancelada.")
+            input("\nPresione Enter para continuar...")
             return
             
         if not self.manager.load_topology(file_path):
+            input("\nPresione Enter para continuar...")
             return
         
         print("\nTopología cargada con éxito.")
@@ -311,10 +359,18 @@ class TopologyUI:
                 option = int(input("\nSeleccione una opción (1-9): "))
                 
                 if option == 1:
+                    # Agregar VMs individuales
                     self.manager.generator.add_vm_to_topology()
+                    
+                    # Guardar y ofrecer visualizar/ejecutar
+                    self.save_and_post_actions(self.manager.topology.name)
                 
                 elif option == 2:
+                    # Agregar topología predefinida
                     self.manager.generator.add_predefined_topology()
+                    
+                    # Guardar y ofrecer visualizar/ejecutar
+                    self.save_and_post_actions(self.manager.topology.name)
                 
                 elif option == 3:
                     self.set_internet_access()
@@ -329,11 +385,8 @@ class TopologyUI:
                     self.manager.manage_connections()
                 
                 elif option == 7:
-                    save_file = input("\nIngrese el nombre del archivo para guardar la topología (o Enter para usar el mismo archivo): ")
-                    if save_file:
-                        self.manager.save_topology(save_file)
-                    else:
-                        self.manager.save_topology()
+                    # Guardar y ofrecer visualizar/ejecutar
+                    self.save_and_post_actions(self.manager.topology.name)
                 
                 elif option == 8:
                     self.manager.execute_topology()

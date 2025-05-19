@@ -220,7 +220,7 @@ class TopologyGenerator:
         Crea una topología personalizada con conexiones definidas por el usuario
         Retorna una lista de los nombres de las VMs creadas
         """
-        from .ui import get_user_input
+        from .utils import get_user_input        
         
         start_vm_id = self.manager.topology.get_next_vm_id()
 

@@ -286,3 +286,30 @@ def validate_vlan_id(value, min_val=100, max_val=200):
     if val < min_val or val > max_val:
         raise ValueError(f"El ID de VLAN debe estar entre {min_val} y {max_val}")
     return val
+
+def get_user_input(prompt, default=None, validator=None):
+    """
+    Solicita entrada al usuario con validación opcional
+    
+    Args:
+        prompt: Mensaje a mostrar al usuario
+        default: Valor por defecto si el usuario no ingresa nada
+        validator: Función que valida la entrada del usuario
+        
+    Returns:
+        La entrada del usuario o el valor por defecto
+    """
+    while True:
+        if default is not None:
+            result = input(f"{prompt} [default: {default}]: ") or default
+        else:
+            result = input(f"{prompt}: ")
+        
+        if validator is None:
+            return result
+        
+        try:
+            return validator(result)
+        except Exception as e:
+            print(f"Error: {e}")
+            continue

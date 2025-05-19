@@ -43,7 +43,7 @@ if ! ls "$BASE_IMAGE" &>/dev/null; then
     else
         echo "La imagen $IMAGE_FILE no existe. Descargando imagen base por defecto: ubuntu.img"
         mkdir -p "$IMAGES_DIR"
-        wget -q -O "$IMAGES_DIR/ubuntu.img.tmp" "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
+        wget -q -O "$IMAGES_DIR/ubuntu.img.tmp" "https://cloud-images.ubuntu.com/focal/20250514/focal-server-cloudimg-amd64.img"
         mv "$IMAGES_DIR/ubuntu.img.tmp" "$IMAGES_DIR/ubuntu.img"
         BASE_IMAGE="$IMAGES_DIR/ubuntu.img"
     fi

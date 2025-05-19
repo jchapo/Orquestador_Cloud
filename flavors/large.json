@@ -2,5 +2,6 @@
   "name": "large",
   "cpu": 4,
   "ram": 4096,
-  "disk": 40
+  "disk": 40,
+  "image": "cirros.img"
 }

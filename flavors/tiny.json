@@ -2,6 +2,6 @@
   "name": "tiny",
   "cpu": 1,
   "ram": 512,
-  "disk": 4,
-  "image": "ubuntu.img"
+  "disk": 1,
+  "image": "cirros.img"
 }

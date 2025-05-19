@@ -1,7 +1,0 @@
-{
-  "name": "bajito",
-  "cpu": 2,
-  "ram": 600,
-  "disk": 2,
-  "image": "cirros.img"
-}

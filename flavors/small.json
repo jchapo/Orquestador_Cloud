@@ -2,5 +2,6 @@
   "name": "small",
   "cpu": 1,
   "ram": 1024,
-  "disk": 10
+  "disk": 10,
+  "image": "cirros.img"
 }

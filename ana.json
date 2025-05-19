@@ -20,39 +20,39 @@
       "name": "vm1",
       "worker": 1,
       "vnc_port": 1,
-      "mac": "52:54:00:01:01:4e",
+      "mac": "52:54:00:01:01:d9",
       "flavor": {
         "name": "tiny",
         "cpu": 1,
         "ram": 512,
         "disk": 1,
-        "image": "ubuntu.img"
+        "image": "cirros.img"
       }
     },
     {
       "name": "vm2",
       "worker": 2,
       "vnc_port": 2,
-      "mac": "52:54:00:02:02:aa",
+      "mac": "52:54:00:02:02:3c",
       "flavor": {
         "name": "tiny",
         "cpu": 1,
         "ram": 512,
         "disk": 1,
-        "image": "ubuntu.img"
+        "image": "cirros.img"
       }
     },
     {
       "name": "vm3",
       "worker": 3,
       "vnc_port": 3,
-      "mac": "52:54:00:03:03:79",
+      "mac": "52:54:00:03:03:56",
       "flavor": {
         "name": "tiny",
         "cpu": 1,
         "ram": 512,
         "disk": 1,
-        "image": "ubuntu.img"
+        "image": "cirros.img"
       }
     }
   ],

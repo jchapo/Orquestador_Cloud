@@ -2,5 +2,6 @@
   "name": "medium",
   "cpu": 2,
   "ram": 2048,
-  "disk": 20
+  "disk": 20,
+  "image": "cirros.img"
 }

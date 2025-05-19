@@ -6,9 +6,9 @@ from .utils import print_header
 
 FLAVORS_DIR = "flavors"
 IMAGES_DIR = "images"
-DEFAULT_IMAGE_NAME = "ubuntu.img"
+DEFAULT_IMAGE_NAME = "cirros.img"
 DEFAULT_IMAGE_PATH = os.path.join(IMAGES_DIR, DEFAULT_IMAGE_NAME)
-IMAGE_URL = "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
+IMAGE_URL = "https://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img"
 
 def ensure_flavors_dir():
     os.makedirs(FLAVORS_DIR, exist_ok=True)

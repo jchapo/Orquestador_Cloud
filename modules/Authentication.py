@@ -2,7 +2,7 @@ import jwt
 from datetime import datetime, timedelta
 import bcrypt
 import json
-from conf.conexion import Conexion
+from config.conexion import Conexion
 
 JWT_SECRET_KEY = 'jwt-grupo1-cloud-secret-key'
 

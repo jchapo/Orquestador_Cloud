@@ -1,6 +1,8 @@
-from auth import Authenticator
-from menus import get_menu_handler
+from modules.Authentication import AuthenticationModule as Authenticator
+from ui.menus import get_menu_handler
 import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import time
 
 def main():

@@ -1,10 +1,2 @@
-from modules.Authentication import AuthenticationModule
-from utils.AuthUtils import auth_required, admin_required, is_admin, get_user_from_token
-
-__all__ = [
-    'AuthenticationModule',
-    'auth_required',
-    'admin_required',
-    'is_admin',
-    'get_user_from_token'
-]
+# Este archivo puede estar vacío o contener imports específicos
+# No debe importar desde sí mismo

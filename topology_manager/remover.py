@@ -86,7 +86,7 @@ class TopologyRemover:
             print("\nEliminando topología...")
             
             # Verificar si existe un script de eliminación
-            script_path = "./destroy_topology.sh"
+            script_path = "./scripts/topology/destroy_topology.sh"
             if not os.path.exists(script_path):
                 print(f"Error: No se encontró el script {script_path}")
                 print("Por favor, cree el script de eliminación primero.")

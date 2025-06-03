@@ -80,7 +80,7 @@ class VMTopologyCreator:
         network_name = f"vlan{self.vlan_id}"
         dhcp_range = f"192.168.{self.vlan_id}.10,192.168.{self.vlan_id}.200"
         
-        cmd = f"sudo ./create_network.sh {network_name} {self.vlan_id} {self.network_cidr} {dhcp_range}"
+        cmd = f"sudo ./scripts/network/create_network.sh {network_name} {self.vlan_id} {self.network_cidr} {dhcp_range}"
         print(f"Running: {cmd}")
         if os.system(cmd) != 0:
             print("Failed to create network!")
@@ -91,7 +91,7 @@ class VMTopologyCreator:
     def _setup_internet_access(self) -> bool:
         """Configure internet access for the VLAN"""
         print(f"Setting up internet access for VLAN {self.vlan_id}...")
-        cmd = f"sudo ./internet_access.sh {self.vlan_id} {self.internet_iface}"
+        cmd = f"sudo ./scripts/network/internet_access.sh {self.vlan_id} {self.internet_iface}"
         print(f"Running: {cmd}")
         if os.system(cmd) != 0:
             print("Failed to configure internet access!")
@@ -105,7 +105,7 @@ class VMTopologyCreator:
         vnc_port = self.base_vnc_port + vm_id - 1
         
         print(f"Creating VM {vm_name}...")
-        cmd = f"sudo ./create_vm.sh {vm_name} {self.ovs_bridge} {self.vlan_id} {vnc_port} {mac_address}"
+        cmd = f"sudo ./scripts/vm_management/create_vm.sh {vm_name} {self.ovs_bridge} {self.vlan_id} {vnc_port} {mac_address}"
         print(f"Running: {cmd}")
         
         if os.system(cmd) != 0:

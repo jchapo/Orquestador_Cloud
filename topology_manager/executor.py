@@ -23,7 +23,7 @@ class TopologyExecutor:
             return False
         
         # Verificar que el script existe
-        script_path = "./create_flexible_topology.sh"
+        script_path = "../scripts/topology/create_flexible_topology.sh"
         if not os.path.exists(script_path):
             print(f"Error: No se encontró el script {script_path}")
             return False

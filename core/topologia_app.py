@@ -7,6 +7,8 @@ Este script inicia la aplicación de gestión de topologías.
 
 import sys
 import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import os
 from topology_manager import TopologyManager
 
 def main():

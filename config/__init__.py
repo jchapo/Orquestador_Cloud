@@ -1,4 +1,4 @@
-from conf.conexion import Conexion, DatabasePool
+from config.conexion import Conexion, DatabasePool
 
 __all__ = ['Conexion', 'DatabasePool']
 

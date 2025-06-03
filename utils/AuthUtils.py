@@ -2,7 +2,7 @@ import jwt
 from functools import wraps
 import os
 import sys
-from conf.conexion import Conexion
+from config.conexion import Conexion
 
 JWT_SECRET_KEY = 'jwt-grupo1-cloud-secret-key'
 
